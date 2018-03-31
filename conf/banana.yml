@@ -1,0 +1,22 @@
+creadentialpath : /Users/yoshinoyuyuu/.yy-db-1-cc70114028f7.json
+authurl : https://www.googleapis.com/auth/spreadsheets
+baseurl : http://www.dmm.co.jp
+dburl: https://docs.google.com/spreadsheets/d/
+dbid : 1toM_Q7AscgyZfZDrdkDdYB2ObioVl1h3FZBfxFwXaQw
+meta :
+  -
+    sheetname : realtime
+    columns : [rank,id,name,image,information]
+    columnrows : [B,C,D,E,F]
+  -
+    sheetname : daily
+    columns : [rank,id,name,image,information]
+    columnrows : [B,C,D,E,F]
+  -
+    sheetname : weekly
+    columns : [rank,id,name,image,information]
+    columnrows : [B,C,D,E,F]
+  -
+    sheetname : monthly
+    columns : [rank,id,name,image,information]
+    columnrows : [B,C,D,E,F]
