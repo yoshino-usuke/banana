@@ -1,4 +1,4 @@
-package mylib
+package helper
 
 import (
 	"gopkg.in/yaml.v2"

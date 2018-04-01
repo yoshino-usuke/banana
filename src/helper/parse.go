@@ -1,4 +1,4 @@
-package mylib
+package helper
 
 import (
 	"github.com/PuerkitoBio/goquery"

@@ -1,4 +1,4 @@
-package mylib
+package helper
 
 import (
 	"net/http"

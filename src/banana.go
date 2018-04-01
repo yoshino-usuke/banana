@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./mylib"
+	"./helper"
 	"log"
 	"sync"
 	"fmt"
@@ -11,15 +11,15 @@ const PROJECT = "banana"
 
 func main() {
 	project := PROJECT
-	updateType := mylib.UPDATE_MONTHLY
-	sheetService, d := mylib.GetSheet(project)
+	updateType := helper.UPDATE_MONTHLY
+	sheetService, d := helper.GetSheet(project)
 	dbList := d.GetDb(updateType)
 
-	fnc := func(db mylib.Db, wait *sync.WaitGroup) {
-		res := mylib.GetRes(db)
+	fnc := func(db helper.Db, wait *sync.WaitGroup) {
+		res := helper.GetRes(db)
 
-		results := mylib.Extract(*res)
-		err := mylib.Insert(results, *sheetService, db, d.Dbid)
+		results := helper.Extract(*res)
+		err := helper.Insert(results, *sheetService, db, d.Dbid)
 		defer wait.Done()
 		if err != nil {
 			log.Fatalf("update failed %s", err.Error())
