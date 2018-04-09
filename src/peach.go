@@ -1,159 +1,166 @@
 package main
 
 import (
-	"./helper"
-	"log"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
-	"encoding/json"
-	"bytes"
-	"time"
+	"github.com/dongri/line-bot-sdk-go/linebot"
 	"io/ioutil"
-	"net/url"
+	"gopkg.in/yaml.v2"
+	"./helper"
 )
 
-// ReceivedMessage ...
-type ReceivedMessage struct {
-	Result []Result `json:"result"`
-}
+var botClient *linebot.Client
 
-// Result ...
-type Result struct {
-	ID          string   `json:"id"`
-	From        string   `json:"from"`
-	FromChannel int      `json:"fromChannel"`
-	To          []string `json:"to"`
-	ToChannel   int      `json:"toChannel"`
-	EventType   string   `json:"eventType"`
-	Content     Content  `json:"content"`
-}
-
-// Content ...
-type Content struct {
-	ID          string   `json:"id"`
-	ContentType int      `json:"contentType"`
-	From        string   `json:"from"`
-	CreatedTime int      `json:"createdTime"`
-	To          []string `json:"to"`
-	ToType      int      `json:"toType"`
-	Text        string   `json:"text"`
-}
-
-// SendMessage ..
-type SendMessage struct {
-	To        []string `json:"to"`
-	ToChannel int      `json:"toChannel"`
-	EventType string   `json:"eventType"`
-	Content   Content  `json:"content"`
+type Data struct {
+	Secretchannel string
+	Channelkey string
 }
 
 func main() {
-	http.HandleFunc("/", helloHandler)
-	http.HandleFunc("/callback", callbackHandler)
+	project := "peach"
+	d,err := getData(project)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	botClient = linebot.NewClient(d.Channelkey)
+	botClient.SetChannelSecret(d.Secretchannel)
+
+	// EventHandler
+	var myEvent linebot.EventHandler = NewEventHandler()
+	botClient.SetEventHandler(myEvent)
+
+	http.Handle("/callback", linebot.Middleware(http.HandlerFunc(callbackHandler)))
 	port := os.Getenv("PORT")
 	addr := fmt.Sprintf(":%s", port)
 	http.ListenAndServe(addr, nil)
 }
 
-func helloHandler(w http.ResponseWriter, r *http.Request)  {
-
+func callbackHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("=== callback ===")
 }
 
-
-// bot機能
-func callbackHandler(w http.ResponseWriter, r *http.Request){
-	decoder := json.NewDecoder(r.Body)
-	var m ReceivedMessage
-	err := decoder.Decode(&m)
-	if err != nil {
-		log.Println(err)
-	}
-	apiURI := helper.EndPoint + "/v1/events"
-
-	PROJECT := "peach"
-	conf,err :=  helper.GetBotData(PROJECT)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	sheetService, d := helper.GetSheet("banana")
-	//TODO response受け取る
-	updateType := helper.UPDATE_DAILY
-	rank := 20
-	dbList := d.GetDb(updateType)
-
-	for _,db := range dbList{
-		sheet,err := sheetService.Spreadsheets.Values.Get(d.Dbid,db.ColumnRange(rank)).Do()
-		if err != nil {
-			log.Fatalf(err.Error())
-		}
-		if sheet != nil{}
-		for _, result := range m.Result {
-			from := result.Content.From
-			text := result.Content.Text
-			content := new(Content)
-			content.ContentType = result.Content.ContentType
-			content.ToType = result.Content.ToType
-			content.Text = text
-			request(apiURI, "POST", []string{from}, *content,conf.ChannelKey)
-		}
-	}
-
+type BotEventHandler struct{
+	linebot.EventHandler
 }
 
-func request(endpointURL string, method string, to []string, content Content,channel int) {
-	m := &SendMessage{}
-	m.To = to
-	m.ToChannel = channel
-	m.EventType = helper.EventType
-	m.Content = content
-	b, err := json.Marshal(m)
-	if err != nil {
-		log.Print(err)
-	}
-	req, err := http.NewRequest(method, endpointURL, bytes.NewBuffer(b))
-	if err != nil {
-		log.Print(err)
-	}
-	req = setHeader(req)
-	client := &http.Client{
-		Transport: &http.Transport{Proxy: http.ProxyURL(getProxyURL())},
-		Timeout:   time.Duration(30 * time.Second),
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Print(err)
-	}
-	defer res.Body.Close()
-
-	var result map[string]interface{}
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Print(err)
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		log.Print(err)
-	}
-	log.Print(result)
+// NewEventHandler ...
+func NewEventHandler() *BotEventHandler {
+	return new(BotEventHandler)
 }
 
-func setHeader(req *http.Request) *http.Request {
-	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Add("X-Line-ChannelID", os.Getenv("ChannelID"))
-	req.Header.Add("X-Line-ChannelSecret", os.Getenv("ChannelSecret"))
-	req.Header.Add("X-Line-Trusted-User-With-ACL", os.Getenv("MID"))
-	return req
+// OnFollowEvent ...
+func (be *BotEventHandler) OnFollowEvent(source linebot.EventSource, replyToken string) {
+	log.Print(source.UserID + "=== フォローされた ===")
+	// source.UserID と Token を保存してnotifyで使える
+	message := linebot.NewTextMessage("Hello!")
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
 }
 
-func getProxyURL() *url.URL {
-	proxyURL, err := url.Parse(os.Getenv("ProxyURL"))
+// OnUnFollowEvent ...
+func (be *BotEventHandler) OnUnFollowEvent(source linebot.EventSource) {
+	log.Print(source.UserID + "=== ブロックされた ===")
+}
+
+// OnJoinEvent ...
+func (be *BotEventHandler) OnJoinEvent(source linebot.EventSource, replyToken string) {
+	message := linebot.NewTextMessage("Room, Group 招待ありがとう!")
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnLeaveEvent ...
+func (be *BotEventHandler) OnLeaveEvent(source linebot.EventSource) {
+	log.Print("=== Groupから蹴られた ===")
+}
+
+// OnPostbackEvent ...
+func (be *BotEventHandler) OnPostbackEvent(source linebot.EventSource, replyToken, postbackData string) {
+	message := linebot.NewTextMessage("「" + postbackData + "」を選択したね！")
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnBeaconEvent ...
+func (be *BotEventHandler) OnBeaconEvent(source linebot.EventSource, replyToken, beaconHwid, beaconYype string) {
+	log.Print("=== Beacon Event ===")
+}
+
+// OnTextMessage ...
+func (be *BotEventHandler) OnTextMessage(source linebot.EventSource, replyToken, text string) {
+	message := linebot.NewTextMessage(text + "じゃねぇよ！")
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnImageMessage ...
+func (be *BotEventHandler) OnImageMessage(source linebot.EventSource, replyToken, id string) {
+	originalContentURL := "https://dl.dropboxusercontent.com/u/358152/linebot/resource/gohper.jpg"
+	previewImageURL := "https://dl.dropboxusercontent.com/u/358152/linebot/resource/gohper.jpg"
+	message := linebot.NewImageMessage(originalContentURL, previewImageURL)
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnVideoMessage ...
+func (be *BotEventHandler) OnVideoMessage(source linebot.EventSource, replyToken, id string) {
+	originalContentURL := "https://dl.dropboxusercontent.com/u/358152/linebot/resource/video-original.mp4"
+	previewImageURL := "https://dl.dropboxusercontent.com/u/358152/linebot/resource/video-preview.png"
+	message := linebot.NewVideoMessage(originalContentURL, previewImageURL)
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnAudioMessage ...
+func (be *BotEventHandler) OnAudioMessage(source linebot.EventSource, replyToken, id string) {
+	originalContentURL := "https://dl.dropboxusercontent.com/u/358152/linebot/resource/ok.m4a"
+	duration := 1000
+	message := linebot.NewAudioMessage(originalContentURL, duration)
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnLocationMessage ...
+func (be *BotEventHandler) OnLocationMessage(source linebot.EventSource, replyToken string, title, address string, latitude, longitude float64) {
+	title = "Disney Resort"
+	address = "〒279-0031 千葉県浦安市舞浜１−１"
+	lat := 35.632211
+	lon := 139.881234
+	message := linebot.NewLocationMessage(title, address, lat, lon)
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+// OnStickerMessage ...
+func (be *BotEventHandler) OnStickerMessage(source linebot.EventSource, replyToken, packageID, stickerID string) {
+	message := linebot.NewStickerMessage("1", "1")
+	result, err := botClient.ReplyMessage(replyToken, message)
+	fmt.Println(result)
+	fmt.Println(err)
+}
+
+func getData(project string) (*Data, error) {
+	path := fmt.Sprintf(helper.CONF_FILE, project)
+	file, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Print(err)
+		return nil, err
 	}
-	return proxyURL
+	var d Data
+	err = yaml.Unmarshal(file, &d)
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
 }
