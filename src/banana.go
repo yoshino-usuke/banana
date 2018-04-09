@@ -5,13 +5,20 @@ import (
 	"log"
 	"sync"
 	"fmt"
+	"flag"
 )
 
 const PROJECT = "banana"
 
 func main() {
+	var updateType string
+	flag.StringVar(&updateType,"term",helper.UPDATE_DAILY,"term[ all | realtime | daily | weekly | monthly ]")
+	flag.Parse()
+	if ! helper.ValidateArgs(updateType) {
+		log.Fatalf("invalid args : %s",updateType)
+	}
+
 	project := PROJECT
-	updateType := helper.UPDATE_MONTHLY
 	sheetService, d := helper.GetSheet(project)
 	dbList := d.GetDb(updateType)
 

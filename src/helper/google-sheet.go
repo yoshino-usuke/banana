@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"os"
 )
 
 const CONF_FILE = "../conf/%s.yml"
@@ -29,7 +30,6 @@ type Data struct {
 	CreadentialPath string
 	Baseurl         string
 	Url             string
-	Dburl           string
 	Dbid       string
 	Meta            []Db
 	Authurl         string
@@ -59,12 +59,16 @@ func (db Db) GetUrl() string{
 	return  fmt.Sprintf(URL,replace)
 }
 
+func (d Data) getCreadentialPath() string {
+	return os.Getenv("HOME") + d.CreadentialPath
+}
+
 func (d Db) ColumnRange(idx int) string {
 	var res string
 	kF, vL := d.ColumnRows[0], d.ColumnRows[len(d.ColumnRows)-1]
 	no := strconv.Itoa(idx + 1)
 	res = kF + "2:" + vL + no
-	return res
+	return d.Sheetname + "!" + res
 }
 
 func ValueRange(result Result) []interface{} {
@@ -72,9 +76,19 @@ func ValueRange(result Result) []interface{} {
 	return []interface{}{result.rank, result.name, result.img, result.url,result.information}
 }
 
+func ValidateArgs(val string) bool {
+	var list = []string{UPDATE_ALL, UPDATE_RANKING, UPDATE_MONTHLY, UPDATE_WEEK, UPDATE_DAILY}
+	for _,uType := range list{
+		if uType == val {
+			return  true
+		}
+	}
+	return false
+}
+
 func (d Data) GetClient() (*http.Client, error) {
 	// 認証情報
-	credential, err := ioutil.ReadFile(d.CreadentialPath)
+	credential, err := ioutil.ReadFile(d.getCreadentialPath())
 	if err != nil {
 		return nil, err
 	}
