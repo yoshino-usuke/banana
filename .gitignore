@@ -1,4 +1,4 @@
 .vagrant
 .idea/*
-VagrantFile
 src/gae/line.env
+conf/hosts.yml
