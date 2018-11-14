@@ -1,21 +1,14 @@
 package helper
 
 import (
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"log"
 
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/sheets/v4"
 	"errors"
 	"fmt"
-	"net/http"
+	"google.golang.org/api/sheets/v4"
 	"strconv"
-	"os"
 )
 
-const CONF_FILE = "../conf/%s.yml"
 const URL = "http://www.dmm.co.jp/digital/videoc/-/ranking/=/term=%s/"
 const (
 	UPDATE_ALL = "all"
@@ -25,15 +18,6 @@ const (
 	UPDATE_MONTHLY = "monthly"
 
 )
-
-type Data struct {
-	CreadentialPath string
-	Baseurl         string
-	Url             string
-	Dbid       string
-	Meta            []Db
-	Authurl         string
-}
 
 type Db struct {
 	Sheetname  string
@@ -59,10 +43,6 @@ func (db Db) GetUrl() string{
 	return  fmt.Sprintf(URL,replace)
 }
 
-func (d Data) getCreadentialPath() string {
-	return os.Getenv("HOME") + d.CreadentialPath
-}
-
 func (d Db) ColumnRange(idx int) string {
 	var res string
 	kF, vL := d.ColumnRows[0], d.ColumnRows[len(d.ColumnRows)-1]
@@ -86,27 +66,7 @@ func ValidateArgs(val string) bool {
 	return false
 }
 
-func (d Data) GetClient() (*http.Client, error) {
-	// 認証情報
-	credential, err := ioutil.ReadFile(d.getCreadentialPath())
-	if err != nil {
-		return nil, err
-	}
-
-	gConf, err := google.JWTConfigFromJSON(credential, d.Authurl)
-	if err != nil {
-		return nil, err
-	}
-
-	client := gConf.Client(oauth2.NoContext)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	return client, nil
-}
-
-func (d Data) GetDb(updateType string) []Db{
+func (c *Config) GetDb(updateType string) []Db{
 	var typeList []string
 	switch updateType {
 	case UPDATE_ALL:
@@ -116,7 +76,7 @@ func (d Data) GetDb(updateType string) []Db{
 		typeList = append(typeList,updateType)
 	}
 	var results []Db
-	for _,d := range d.Meta{
+	for _,d := range c.Meta{
 		for _,t := range typeList{
 			if d.Sheetname == t{
 				results = append(results,d)
@@ -126,37 +86,15 @@ func (d Data) GetDb(updateType string) []Db{
 	return results
 }
 
-func getData(project string) (*Data, error) {
-	path := fmt.Sprintf(CONF_FILE, project)
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var d Data
-	err = yaml.Unmarshal(file, &d)
-	if err != nil {
-		return nil, err
-	}
-
-	return &d, nil
-}
-
-func GetSheet(project string) (*sheets.Service, *Data) {
-	d, err := getData(project)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	client, err := d.GetClient()
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
+func GetSheet() (*sheets.Service, *Config) {
+	client := GetClient()
+	c := GetConfig()
 	sheetService, err := sheets.New(client)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	return sheetService, d
+	return sheetService, c
 }
 
 func Insert(results []Result, s sheets.Service,d Db,sheetId string) error {

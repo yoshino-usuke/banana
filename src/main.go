@@ -1,16 +1,14 @@
 package main
 
 import (
-	"./helper"
-	"log"
-	"sync"
-	"fmt"
 	"flag"
+	"fmt"
+	"sync"
+	"log"
+	"./helper"
 )
 
-const PROJECT = "banana"
-
-func main() {
+func main()  {
 	var updateType string
 	flag.StringVar(&updateType,"term",helper.UPDATE_DAILY,"term[ all | realtime | daily | weekly | monthly ]")
 	flag.Parse()
@@ -18,8 +16,7 @@ func main() {
 		log.Fatalf("invalid args : %s",updateType)
 	}
 
-	project := PROJECT
-	sheetService, d := helper.GetSheet(project)
+	sheetService, d := helper.GetSheet()
 	dbList := d.GetDb(updateType)
 
 	fnc := func(db helper.Db, wait *sync.WaitGroup) {
